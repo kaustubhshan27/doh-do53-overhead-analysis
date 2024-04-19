@@ -4,6 +4,7 @@ import csv
 import dns.query
 import dns.message
 import httpx
+import time
 
 # Define the DoH endpoints for Google and Cloudflare
 GOOGLE_DNS_HTTPS = 'https://dns.google/dns-query'               # https://developers.google.com/speed/public-dns/docs/doh
@@ -22,6 +23,7 @@ def resolve_doh(dns_service_url, session=None):
             # Sends the DNS query message over HTTPS, returns the response from the DoH server
             response = dns.query.https(dns_message, dns_service_url, session=session)
             print(f"Domain: {domain}, DNS Service URL: {dns_service_url}, Response: {response}")
+            time.sleep(0.1)
 
 def main():
     # Without persistent connections
