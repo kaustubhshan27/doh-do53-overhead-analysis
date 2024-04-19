@@ -10,7 +10,7 @@ GOOGLE_DNS_HTTPS = 'https://dns.google/dns-query'               # https://develo
 CLOUDFLARE_DNS_HTTPS = 'https://cloudflare-dns.com/dns-query'   # https://developers.cloudflare.com/1.1.1.1/encryption/dns-over-https/make-api-requests/
 
 # CSV file path
-CSV_FILE_PATH = '../top-domains-db/test_domains.csv'
+CSV_FILE_PATH = '/home/kaustubh/Documents/VT-Courses/Spring_24/ECE5560-Fundamentals_Of_InfoSec/project/doh-dou-overhead-analysis/top-domains-db/test_domains.csv'
 
 def resolve_doh(dns_service_url, session=None):
     with open(CSV_FILE_PATH, newline='') as csvfile:
@@ -25,11 +25,11 @@ def resolve_doh(dns_service_url, session=None):
 
 def main():
     # Without persistent connections
-    # print("\nWithout persistent connections:")
-    # print("Resolving with Google DNS...")
-    # resolve_doh(GOOGLE_DNS_HTTPS)
-    # print("Resolving with Cloudflare DNS...")
-    # resolve_doh(CLOUDFLARE_DNS_HTTPS)
+    print("\nWithout persistent connections:")
+    print("Resolving with Google DNS...")
+    resolve_doh(GOOGLE_DNS_HTTPS)
+    print("Resolving with Cloudflare DNS...")
+    resolve_doh(CLOUDFLARE_DNS_HTTPS)
 
     # Using persistent connections
     print("Using persistent connections:")
