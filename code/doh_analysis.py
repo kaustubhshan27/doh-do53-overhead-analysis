@@ -36,8 +36,8 @@ def main():
     # Using persistent connections
     print("Using persistent connections:")
     with httpx.Client() as client:
-        #print("Resolving with Google DNS...")
-        #resolve_doh(GOOGLE_DNS_HTTPS, session=client)
+        print("Resolving with Google DNS...")
+        resolve_doh(GOOGLE_DNS_HTTPS, session=client)
         print("Resolving with Cloudflare DNS...")
         resolve_doh(CLOUDFLARE_DNS_HTTPS, session=client)
 
