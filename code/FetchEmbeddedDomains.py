@@ -1,17 +1,17 @@
 import pandas as pd
 import numpy as np
-import requests
-import re
+import requests, re
 from bs4 import BeautifulSoup
 from progress.bar import IncrementalBar
 
-#df = pd.read_csv(r"cloudflare-radar-domains-top-10000-20240325-20240401.csv", header=None)
-df = pd.read_csv(r"cloudflare-radar-domains-top-100000-20240325-20240401.csv", header=None)
-#df = pd.read_csv(r"test_domains.csv", header=None)
-df.columns = ['DNS']
-df['embeddedDomains'] = pd.Series(dtype='object')
-df['embeddedDomains'] = "TBD"
-print(df, end='\n\n')
+from selenium import webdriver
+from selenium.webdriver.firefox.service import Service
+from webdriver_manager.firefox import GeckoDriverManager
+from selenium.common.exceptions import TimeoutException, WebDriverException, UnexpectedAlertPresentException, InvalidArgumentException
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
 
 def check_https(domain):
     try:
@@ -22,50 +22,127 @@ def check_https(domain):
     except requests.RequestException:
         return False
 
-bar = IncrementalBar('Fetching embedded domains:', max = len(df.index))
+#filename = "cloudflare-radar-domains-top-10000-20240325-20240401.csv"
+filename = "cloudflare-radar-domains-top-100000-20240325-20240401.csv"
+#filename = "test_domains.csv"
+df = pd.read_csv(rf"Checkpoint-{filename}", header=None)
+df.columns = ['DNS', 'embeddedDomains']
 
-for index, row in df.iterrows():
-    bar.next()
-    try:
-        # Make HTTP GET request
-        #response = requests.get("https://" + str(row['DNS']))
+bar = IncrementalBar('Fetching embedded domains:', max = len(df[(df['embeddedDomains'] == "TBD")].index))
+
+"""
+print(df[(df['embeddedDomains'] == "TBD")].index.to_list()[0])
+print(df[(df['embeddedDomains'] == "TBD")])
+print(df[(df['embeddedDomains'] == "TBD")].index.to_list()[-1])
+"""
+
+# Set up Firefox options
+options = webdriver.FirefoxOptions()
+options.add_argument('--headless')  # Run in background without opening a browser window
+
+# Initialize the WebDriver
+service = Service(GeckoDriverManager().install())
+driver = webdriver.Firefox(service=service, options=options)
+
+op = []
+
+"""
+df['embeddedDomains'] = pd.Series(dtype='object')
+df['embeddedDomains'] = "TBD"
+"""
+
+try:
+    for index, row in df[(df['embeddedDomains'] == "TBD")].iterrows():
+        bar.next()
+        """op.append(row['DNS'])"""
+
+        # Fetch the page
         protocol = "https" if check_https(row['DNS']) else "http"
-        url2 = f"{protocol}://{row['DNS']}"
-        response = requests.get(url2, timeout=5)
+        url = f"{protocol}://{row['DNS']}"
         
-        # Check if request was successful
-        if response.status_code == 200:
-            # Extract HTML code
-            html_code = response.text
-            
-            # Process or store HTML code as needed
-            url_pattern = re.compile(r'href="(https?://[^"]+)"')
+        # Set page load timeout
+        driver.set_page_load_timeout(3)  # Timeout after 10 seconds
+        
+        try:
+            # Attempt to fetch the page
+            driver.get(url)
+        except TimeoutException:
+            #print(f"TimeoutException: The page took too long to load for URL {url}")
+            df.at[index, "embeddedDomains"] = "TimeoutException: The page took too long to load"
+            continue
+        except WebDriverException as e:
+            #print(f"WebDriverException: Problem accessing the URL {url}. Error: {e}")
+            df.at[index, "embeddedDomains"] = "WebDriverException: Problem accessing the URL"
+            continue
+        except:
+            df.at[index, "embeddedDomains"] = "Problem accessing the URL"
+            continue
 
-            # Parse HTML code with BeautifulSoup
-            soup = BeautifulSoup(html_code, 'html.parser')
+        # Extract HTML content
+        try:
+            # Set implicit wait
+            driver.implicitly_wait(3)  # Wait up to 5 seconds for elements to be found
 
-            # Find all <a> tags containing URLs
-            links = soup.find_all('a')
+            # Use explicit wait to wait for a specific element to be loaded or condition to be met
+            wait = WebDriverWait(driver, 3)  # Timeout after 10 seconds
+            element = wait.until(EC.presence_of_element_located((By.TAG_NAME, 'body')))  # Example: Wait for the body tag to be loaded
 
-            # Extract URLs from <a> tags
-            urls = [link.get('href') for link in links]
+            html_content = driver.page_source
+        except UnexpectedAlertPresentException:
+            df.at[index, "embeddedDomains"] = "UnexpectedAlertPresentException: Problem extracting the HTML content"
+            continue
+        except InvalidArgumentException:
+            df.at[index, "embeddedDomains"] = "InvalidArgumentException: Problem extracting the HTML content"
+            continue
+        except:
+            df.at[index, "embeddedDomains"] = "Problem extracting the HTML content"
+            continue
 
-            # Filter and extract domains from URLs
-            embeddedDomains = [re.match(r'https?://([^/]+)', url).group(1) for url in urls if re.match(r'https?://([^/]+)', url)]
+        # Process or store HTML code as needed
+        url_pattern = re.compile(r'href="(https?://[^"]+)"')
 
-            # extracted domains
-            #print(embeddedDomains)
-            df.at[index, "embeddedDomains"] = ', '.join(embeddedDomains)
-        else:
-            #print(f"Failed to retrieve HTML for {row['DNS']}. Status code: {response.status_code}")
-            df.at[index, "embeddedDomains"] = "Failed to fetch HTML."
-            pass
-    
-    except Exception as e:
-        #print(f"Error occurred while fetching HTML for {domain}: {str(e)}")
-        df.at[index, "embeddedDomains"] = "Failed to fetch HTML."
-        pass
-    df.to_csv(r"op.csv", index=False)
+        # Parse HTML code with BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        # Find all <a> tags containing URLs
+        links = soup.find_all('a')
+
+        # Extract URLs from <a> tags
+        urls = [link.get('href') for link in links]
+
+        # Filter and extract domains from URLs
+        embeddedDomains = [re.match(r'https?://([^/]+)', e_url).group(1) for e_url in urls if e_url is not None and re.match(r'https?://([^/]+)', e_url)]
+
+        df.at[index, "embeddedDomains"] = ', '.join(embeddedDomains)
+
+        # extracted domains
+        """for domain in embeddedDomains:
+            op.append(domain)"""
+        
+        df.to_csv(rf"Checkpoint-{filename}", index=False, header=False)
+finally:
+    # Close the browser
+    driver.quit()
 
 bar.finish()
 
+for index, row in df.iterrows():
+    op.append(row['DNS'])
+    #print(row['DNS'])
+    #print(row['embeddedDomains'])
+
+    errorLogs = ["TimeoutException: The page took too long to load",
+                 "WebDriverException: Problem accessing the URL",
+                 "Problem accessing the URL",
+                 "UnexpectedAlertPresentException: Problem extracting the HTML content",
+                 "InvalidArgumentException: Problem extracting the HTML content",
+                 "Problem extracting the HTML content",
+                 "TBD",
+                 np.NaN]
+    
+    if row['embeddedDomains'] not in errorLogs:
+        for domain in str(row['embeddedDomains']).split(', '):
+            op.append(domain)
+        pass
+
+pd.DataFrame(op).to_csv(rf"Extended-{filename}", index=False, header=False)
