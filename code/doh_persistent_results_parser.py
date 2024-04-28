@@ -31,7 +31,7 @@ def results_parser():
 
             for row in pkt_capture:
                 record = dict(zip(headers, row))
-                if "[FIN," in record['Info'].split():
+                if "[RST," in record['Info'].split() or "[FIN," in record['Info'].split():
                     # calculate stats for the last DNS conversation
                     total_capture_size += per_query_size
                     min_query_size = min(min_query_size, per_query_size)

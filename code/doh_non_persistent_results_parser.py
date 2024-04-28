@@ -44,6 +44,12 @@ def results_parser():
                     per_query_pkts += 1
 
                 total_pkts += 1
+
+            total_capture_size += per_query_size
+            min_query_size = min(min_query_size, per_query_size)
+            max_query_size = max(max_query_size, per_query_size)
+            min_query_pkts = min(min_query_pkts, per_query_pkts)
+            max_query_pkts = max(max_query_pkts, per_query_pkts)
         
         avg_query_size = total_capture_size / total_queries
         avg_pkts_per_query = total_pkts / total_queries
