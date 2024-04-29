@@ -3,6 +3,7 @@ import numpy as np
 import requests, re
 from bs4 import BeautifulSoup
 from progress.bar import IncrementalBar
+import os, sys
 
 from selenium import webdriver
 from selenium.webdriver.firefox.service import Service
@@ -23,18 +24,21 @@ def check_https(domain):
         return False
 
 #filename = "cloudflare-radar-domains-top-10000-20240325-20240401.csv"
-filename = "cloudflare-radar-domains-top-100000-20240325-20240401.csv"
+#filename = "cloudflare-radar-domains-top-100000-20240325-20240401.csv"
 #filename = "test_domains.csv"
-df = pd.read_csv(rf"Checkpoint-{filename}", header=None)
-df.columns = ['DNS', 'embeddedDomains']
+filename = sys.argv[1]
 
-bar = IncrementalBar('Fetching embedded domains:', max = len(df[(df['embeddedDomains'] == "TBD")].index))
-
-"""
-print(df[(df['embeddedDomains'] == "TBD")].index.to_list()[0])
-print(df[(df['embeddedDomains'] == "TBD")])
-print(df[(df['embeddedDomains'] == "TBD")].index.to_list()[-1])
-"""
+if os.path.exists(rf"Checkpoint-{filename}"):
+    df = pd.read_csv(rf"Checkpoint-{filename}", header=None)
+    df.columns = ['DNS', 'embeddedDomains']
+    if len(df[(df['embeddedDomains'] == "TBD")].index.to_list()) != 0:
+        print(df[(df['embeddedDomains'] == "TBD")].index.to_list()[0])
+        print(df[(df['embeddedDomains'] == "TBD")].index.to_list()[-1])
+else:
+    df = pd.read_csv(rf"{filename}", header=None)
+    df['embeddedDomains'] = pd.Series(dtype='object')
+    df['embeddedDomains'] = "TBD"
+    df.columns = ['DNS', 'embeddedDomains']
 
 # Set up Firefox options
 options = webdriver.FirefoxOptions()
@@ -46,24 +50,20 @@ driver = webdriver.Firefox(service=service, options=options)
 
 op = []
 
-"""
-df['embeddedDomains'] = pd.Series(dtype='object')
-df['embeddedDomains'] = "TBD"
-"""
+bar = IncrementalBar('Fetching embedded domains:', max = len(df[(df['embeddedDomains'] == "TBD")].index))
 
 try:
     for index, row in df[(df['embeddedDomains'] == "TBD")].iterrows():
         bar.next()
-        """op.append(row['DNS'])"""
 
         # Fetch the page
         protocol = "https" if check_https(row['DNS']) else "http"
         url = f"{protocol}://{row['DNS']}"
         
-        # Set page load timeout
-        driver.set_page_load_timeout(3)  # Timeout after 10 seconds
-        
         try:
+            # Set page load timeout
+            driver.set_page_load_timeout(5)  # Timeout after 10 seconds
+
             # Attempt to fetch the page
             driver.get(url)
         except TimeoutException:
@@ -94,6 +94,9 @@ try:
         except InvalidArgumentException:
             df.at[index, "embeddedDomains"] = "InvalidArgumentException: Problem extracting the HTML content"
             continue
+        except TimeoutException:
+            df.at[index, "embeddedDomains"] = "TimeoutException: Problem extracting the HTML content"
+            continue
         except:
             df.at[index, "embeddedDomains"] = "Problem extracting the HTML content"
             continue
@@ -114,10 +117,6 @@ try:
         embeddedDomains = [re.match(r'https?://([^/]+)', e_url).group(1) for e_url in urls if e_url is not None and re.match(r'https?://([^/]+)', e_url)]
 
         df.at[index, "embeddedDomains"] = ', '.join(embeddedDomains)
-
-        # extracted domains
-        """for domain in embeddedDomains:
-            op.append(domain)"""
         
         df.to_csv(rf"Checkpoint-{filename}", index=False, header=False)
 finally:
@@ -126,19 +125,121 @@ finally:
 
 bar.finish()
 
+errorLogs = ["TimeoutException: The page took too long to load", 
+            "WebDriverException: Problem accessing the URL",
+            "Problem accessing the URL",
+            "UnexpectedAlertPresentException: Problem extracting the HTML content",
+            "InvalidArgumentException: Problem extracting the HTML content",
+            "TimeoutException: Problem extracting the HTML content",
+            "Problem extracting the HTML content",
+            "TBD",
+            np.NaN]
+
 for index, row in df.iterrows():
     op.append(row['DNS'])
     #print(row['DNS'])
     #print(row['embeddedDomains'])
+    
+    if row['embeddedDomains'] not in errorLogs:
+        for domain in str(row['embeddedDomains']).split(', '):
+            op.append(domain)
+        pass
 
-    errorLogs = ["TimeoutException: The page took too long to load",
-                 "WebDriverException: Problem accessing the URL",
-                 "Problem accessing the URL",
-                 "UnexpectedAlertPresentException: Problem extracting the HTML content",
-                 "InvalidArgumentException: Problem extracting the HTML content",
-                 "Problem extracting the HTML content",
-                 "TBD",
-                 np.NaN]
+pd.DataFrame(op).to_csv(rf"Extended-{filename}", index=False, header=False)
+
+
+redoLogs = ["TimeoutException: The page took too long to load",
+            "WebDriverException: Problem accessing the URL",
+            "Problem accessing the URL",
+            "UnexpectedAlertPresentException: Problem extracting the HTML content",
+            "InvalidArgumentException: Problem extracting the HTML content",
+            "TimeoutException: Problem extracting the HTML content",
+            "Problem extracting the HTML content"
+            ]
+
+print(df[(df['embeddedDomains'].isin(redoLogs))])
+
+bar = IncrementalBar('Fetching embedded domains:', max = len(df[(df['embeddedDomains'].isin(redoLogs))].index))
+
+try:
+    for index, row in df[(df['embeddedDomains'].isin(redoLogs))].iterrows():
+        bar.next()
+
+        # Fetch the page
+        protocol = "https" if check_https(row['DNS']) else "http"
+        url = f"{protocol}://{row['DNS']}"
+        
+        try:
+            # Set page load timeout
+            driver.set_page_load_timeout(10)  # Timeout after 10 seconds
+
+            # Attempt to fetch the page
+            driver.get(url)
+        except TimeoutException:
+            #print(f"TimeoutException: The page took too long to load for URL {url}")
+            df.at[index, "embeddedDomains"] = "TimeoutException: The page took too long to load"
+            continue
+        except WebDriverException as e:
+            #print(f"WebDriverException: Problem accessing the URL {url}. Error: {e}")
+            df.at[index, "embeddedDomains"] = "WebDriverException: Problem accessing the URL"
+            continue
+        except:
+            df.at[index, "embeddedDomains"] = "Problem accessing the URL"
+            continue
+
+        # Extract HTML content
+        try:
+            # Set implicit wait
+            driver.implicitly_wait(5)  # Wait up to 5 seconds for elements to be found
+
+            # Use explicit wait to wait for a specific element to be loaded or condition to be met
+            wait = WebDriverWait(driver, 10)  # Timeout after 10 seconds
+            element = wait.until(EC.presence_of_element_located((By.TAG_NAME, 'body')))  # Example: Wait for the body tag to be loaded
+
+            html_content = driver.page_source
+        except UnexpectedAlertPresentException:
+            df.at[index, "embeddedDomains"] = "UnexpectedAlertPresentException: Problem extracting the HTML content"
+            continue
+        except InvalidArgumentException:
+            df.at[index, "embeddedDomains"] = "InvalidArgumentException: Problem extracting the HTML content"
+            continue
+        except TimeoutException:
+            df.at[index, "embeddedDomains"] = "TimeoutException: Problem extracting the HTML content"
+            continue
+        except:
+            df.at[index, "embeddedDomains"] = "Problem extracting the HTML content"
+            continue
+
+        # Process or store HTML code as needed
+        url_pattern = re.compile(r'href="(https?://[^"]+)"')
+
+        # Parse HTML code with BeautifulSoup
+        soup = BeautifulSoup(html_content, 'html.parser')
+
+        # Find all <a> tags containing URLs
+        links = soup.find_all('a')
+
+        # Extract URLs from <a> tags
+        urls = [link.get('href') for link in links]
+
+        # Filter and extract domains from URLs
+        embeddedDomains = [re.match(r'https?://([^/]+)', e_url).group(1) for e_url in urls if e_url is not None and re.match(r'https?://([^/]+)', e_url)]
+
+        df.at[index, "embeddedDomains"] = ', '.join(embeddedDomains)
+        
+        df.to_csv(rf"Checkpoint-{filename}", index=False, header=False)
+finally:
+    # Close the browser
+    driver.quit()
+
+bar.finish()
+
+op = []
+
+for index, row in df.iterrows():
+    op.append(row['DNS'])
+    #print(row['DNS'])
+    #print(row['embeddedDomains'])
     
     if row['embeddedDomains'] not in errorLogs:
         for domain in str(row['embeddedDomains']).split(', '):
