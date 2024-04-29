@@ -4,8 +4,8 @@ import csv
 import numpy as np
 from collections import defaultdict
 
-CLOUDFLARE_CSV_FILE_PATH = '/home/kaustubh/Documents/VT-Courses/Spring_24/ECE5560-Fundamentals_Of_InfoSec/project/doh-dou-overhead-analysis/results/doh-non-persistent/cloudflare/doh_non_persistent_cloudflare_test_db.csv'
-GOOGLE_CSV_FILE_PATH = '/home/kaustubh/Documents/VT-Courses/Spring_24/ECE5560-Fundamentals_Of_InfoSec/project/doh-dou-overhead-analysis/results/doh-non-persistent/google/doh_non_persistent_google_test_db.csv'
+CLOUDFLARE_CSV_FILE_PATH = '../../results/doh-non-persistent/cloudflare/doh_non_persistent_cloudflare_test_db.csv'
+GOOGLE_CSV_FILE_PATH = '../../results/doh-non-persistent/google/doh_non_persistent_google_test_db.csv'
 
 result_csv = [CLOUDFLARE_CSV_FILE_PATH, GOOGLE_CSV_FILE_PATH]
 

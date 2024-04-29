@@ -3,8 +3,8 @@
 import csv
 import numpy as np
 
-CLOUDFLARE_CSV_FILE_PATH = '/home/kaustubh/Documents/VT-Courses/Spring_24/ECE5560-Fundamentals_Of_InfoSec/project/doh-dou-overhead-analysis/results/dou/cloudflare/dou_cloudflare_test_db.csv'
-GOOGLE_CSV_FILE_PATH = '/home/kaustubh/Documents/VT-Courses/Spring_24/ECE5560-Fundamentals_Of_InfoSec/project/doh-dou-overhead-analysis/results/dou/google/dou_google_test_db.csv'
+CLOUDFLARE_CSV_FILE_PATH = '../../results/do53/cloudflare/do53_cloudflare_test_db.csv'
+GOOGLE_CSV_FILE_PATH = '../../results/do53/google/do53_google_test_db.csv'
 
 result_csv = [CLOUDFLARE_CSV_FILE_PATH, GOOGLE_CSV_FILE_PATH]
 
